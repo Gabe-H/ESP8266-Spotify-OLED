@@ -1,6 +1,5 @@
 #include <ESP8266WiFi.h>
 #include <DNSServer.h>
-#include <WiFiClient.h>
 #include <EEPROM.h>
 #include <ESP8266WebServer.h>
 // Wifi libraries
@@ -167,6 +166,7 @@ boolean checkConnection() {
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println();
       Serial.println(F("Connected!"));
+      ip2Str(WiFi.localIP());
       return true;
     }
     delay(500);
