@@ -1,0 +1,17 @@
+{
+  "files.associations": {
+    "*.tcc": "cpp",
+    "exception": "cpp",
+    "random": "cpp",
+    "fstream": "cpp",
+    "functional": "cpp",
+    "istream": "cpp",
+    "limits": "cpp",
+    "new": "cpp",
+    "ostream": "cpp",
+    "stdexcept": "cpp",
+    "streambuf": "cpp",
+    "typeinfo": "cpp",
+    "string": "cpp"
+  }
+}
