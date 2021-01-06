@@ -36,7 +36,6 @@ unsigned long requestDueTime;              // Time when request due
 
 const IPAddress apIP(192, 168, 1, 1);
 const char apSSID[] = "Ard Connect";
-String myHostname = "ardspot";
 boolean settingMode;
 boolean tokenReady = false;
 String ssidList;
@@ -52,6 +51,16 @@ ESP8266WebServer webServer(80);
 WiFiClientSecure client;
 ArduinoSpotify spotify(client, CLIENT_ID, CLIENT_SECRET);
 SSD1306  display(0x3C, D2, D1);
+
+String authUrl() {
+  String s = "https://accounts.spotify.com/authorize?client_id=";
+  s += CLIENT_ID;
+  s += "&response_type=code&redirect_uri=";
+  s += "http://ardspot.local/callback";
+  s += "&scope=user-modify-playback-state";
+
+  return s;
+}
 
 String makePage(String title, String contents) {
   String s = F("<!DOCTYPE html><html><head>");
@@ -122,10 +131,10 @@ void writeWifi(String ssid = "", String password = "") {
   }
   EEPROM.commit();
 
-  for (int i=0; i<ssid.length(); i++) {
+  for (int i=0; i<32; i++) {
     EEPROM.write(i, ssid[i]);
   }
-  for (int i=0; i<password.length(); i++) {
+  for (int i=0; i<96; i++) {
     EEPROM.write(i+32, password[i]);
   }
   EEPROM.commit();
@@ -264,13 +273,16 @@ void startAP() {
 
   webServer.begin();
 
-  displayStatus(F("WIFI CONFIG"), F("Connect to:"), apSSID, myHostname + F(".local/"));
+  displayStatus(F("WIFI CONFIG"), F("Connect to:"), apSSID, F("http://ardspot.local/"));
   settingMode = true;
 }
 
 void startWifi() {
   webServer.on("/", []() {
-    String s = F("<h1>Arduino Spotify</h1><p><form action=\"tokenset\"><input type=\"text\" name=\"refresh_token\" /><input type=\"submit\" value=\"Set Refresh Token\"/></form>");
+    String s = F("<h1>Arduino Spotify</h1>");
+    s += F("<form action=\"https://accounts.spotify.com/authorize\"><input type=\"hidden\" name=\"client_id\" value=\"");
+    s += CLIENT_ID;
+    s += ("\" /><input type=\"hidden\" name=\"response_type\" value=\"code\" /><input type=\"hidden\" name=\"redirect_uri\" value=\"http://ardspot.local/callback\" /><input type=\"hidden\" name=\"scope\" value=\"user-modify-playback-state\" /><input type=\"checkbox\" name=\"show_dialog\" value=\"true\" />Manual <input type=\"submit\" value=\"Sign In\" /></form>");
     s += F("</p><p><a href=\"/wifireset\">Reset Wi-Fi Settings</a><br/><a href=\"/tokenreset\">Reset Spotify Token</a><br/><a href=\"/factoryreset\">Factory Reset<a></p>");
     webServer.send(200, F("text/html"), makePage(F("STA mode"), s));
   });
@@ -282,24 +294,24 @@ void startWifi() {
     EEPROM.commit();
     String s = F("<h1>All settings have been reset.</h1>");
     webServer.send(200, F("text/html"), makePage(F("Factory Reset"), s));
-    displayStatus("FACTORY RESET", "Resetting...");
+    displayStatus(F("FACTORY RESET"), F("Resetting..."));
     delay(1000);
     ESP.restart();
   });
 
-  webServer.on("/wifireset", []() {
+  webServer.on(F("/wifireset"), []() {
     for (int i=0; i<96; i++) {
       EEPROM.write(i, 0);
     }
     EEPROM.commit();
 
-    String s = "<h1>Wifi settings have been reset</h1>";
+    String s = F("<h1>Wifi settings have been reset</h1>");
     webServer.send(200, F("text/html"), makePage(F("Wifi Settings Reset"), s));
 
     ESP.restart();
   });
 
-  webServer.on("/tokenreset", []() {
+  webServer.on(F("/tokenreset"), []() {
     for (int i = 0; i < 131; ++i) {
       EEPROM.write(i + 96, 0);
     }
@@ -311,28 +323,46 @@ void startWifi() {
     ESP.restart();
   });
 
-  webServer.on("/tokenset", []() {
+  webServer.on(F("/tokenset"), []() {
     String refreshToken = webServer.arg("refresh_token");
-    Serial.print("Got token: ");
+    Serial.print(F("Got token: "));
     Serial.println(refreshToken);
+    tokenReady = false;
+
+    webServer.send(200, F("text/html"), makePage(F("Set Refresh Token"), F("<h1>Refresh token was set</h1>")));
     for (int i = 0; i < 131; ++i) {
       EEPROM.write(i + 96, refreshToken[i]);
     }
     EEPROM.commit();
-    webServer.send(200, "text/html", makePage(F("Set Refresh Token"), F("<h1>Refresh token was set</h1>")));
-    tokenReady = false;
+    displayStatus(F("SAVING..."));
+    delay(2500);
     
     refresh_token = refreshToken;
-    spotify.setRefreshToken(refresh_token.c_str());
+    displayStatus(F("RESTARTING..."));
+    delay(200);
+    ESP.restart();
+  });
 
-    displayStatus("CONNECTING SPOTIFY");
-    if (spotify.refreshAccessToken()) {
-      displayStatus(F("READY"), "", F("Starting..."));
-      tokenReady = true;
-    } else {
-      displayStatus(F("TOKEN ERROR"), F("Go to:"), myHostname + F(".local/  or"), localIP);
-      tokenReady = false;
+  webServer.on(F("/callback"), []() {
+    String authCode = webServer.arg(F("code"));
+    Serial.print(F("Got code: "));
+    Serial.println(authCode);
+    displayStatus(F("GOT CODE"));
+    String refreshToken = spotify.requestAccessTokens(authCode.c_str(), "http://ardspot.local/callback");
+    
+    for (int i = 0; i < 131; ++i) {
+      EEPROM.write(i + 96, refreshToken[i]);
     }
+    EEPROM.commit();
+
+    webServer.send(200, F("text/html"), makePage(F("Spotify Authentication"), F("<h1>You may close this window</h1>")));
+    displayStatus(F("SAVING..."));
+    delay(2500);
+    
+    refresh_token = refreshToken;
+    displayStatus(F("RESTARTING..."));
+    delay(200);
+    ESP.restart();
   });
 
   webServer.begin();
@@ -380,13 +410,6 @@ void setup() {
   display.flipScreenVertically();
   // display.setFont(Open_Sans_Hebrew_Condensed_Light_12);
   display.setFont(Roboto_Condensed_13);
-  if (!MDNS.begin(myHostname)) {
-    Serial.println("Error setting up MDNS responder!");
-  } else {
-    Serial.println("mDNS responder started");
-    // Add service to MDNS-SD
-    MDNS.addService("http", "tcp", 80);
-  }
 
   spotify.currentlyPlayingBufferSize = 5000;
   spotify.playerDetailsBufferSize = 5000;
@@ -402,18 +425,18 @@ void setup() {
         Serial.println(F("Refreshing saved tokens.."));
 
         if (spotify.refreshAccessToken()) {
-          displayStatus("READY", "", "Starting...");
+          displayStatus(("READY"), "", F("Starting..."));
           Serial.println(F("Tokens refreshed!"));
           tokenReady = true;
         } else {
-          displayStatus("TOKEN ERROR", "Go to:", myHostname + F(".local/  or"), localIP);
+          displayStatus(F("TOKEN ERROR"), F("Go to:"), F("http://ardspot.local/  or"), localIP+"/");
           Serial.println(F("Failed to refresh tokens"));
           Serial.print(F("Connect to "));
           Serial.println(WiFi.localIP());
           tokenReady = false;
         }
       } else {
-        displayStatus(F("NO TOKEN SET"), F("Go to:"), myHostname + F(".local/  or"), localIP);
+        displayStatus(F("NO TOKEN SET"), F("Go to:"), F("http://ardspot.local/  or"), localIP+"/");
         tokenReady = false;
       }
       
@@ -425,6 +448,14 @@ void setup() {
     }
   } else {
     startAP();
+  }
+  
+  if (!MDNS.begin(F("ardspot"))) {
+    Serial.println(F("Error setting up MDNS responder!"));
+  } else {
+    Serial.println(F("mDNS responder started"));
+    // Add service to MDNS-SD
+    MDNS.addService("http", "tcp", 80);
   }
 }
 
