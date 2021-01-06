@@ -494,6 +494,9 @@ CurrentlyPlaying ArduinoSpotify::getCurrentlyPlaying(const char *market)
             Serial.println(error.c_str());
         }
     }
+    else if (statusCode == 204) {
+        currentlyPlaying.error = false;
+    }
 
     closeClient();
     return currentlyPlaying;

@@ -1,5 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <DNSServer.h>
+#include <ESP8266mDNS.h>
 #include <EEPROM.h>
 #include <ESP8266WebServer.h>
 // Wifi libraries
@@ -14,20 +15,28 @@
 #include <ArduinoJson.h>      // https://github.com/bblanchon/ArduinoJson
 // Spotify libraries
 
-#define CLIENT_ID "" // Your client ID of your spotify APP
-#define CLIENT_SECRET "" // Your client Secret of your spotify APP (Do Not share this!)
+/* 
+  SET THE BELOW VARIABLES TO YOUR OWN CLIENT CREDENTIALS
+*/
+
+//#define CLIENT_ID
+//#define CLIENT_SECRET
 
 // Country code, including this is advisable
 #define SPOTIFY_MARKET "US"
 //------- ---------------------- ------
 
-
+// Used to hide client variables on Github
+#ifndef CLIENT_ID
+  #include <creds.h>
+#endif
 
 unsigned long delayBetweenRequests = 1000; // Time between requests (1 second)
 unsigned long requestDueTime;              // Time when request due
 
 const IPAddress apIP(192, 168, 1, 1);
 const char apSSID[] = "Ard Connect";
+String myHostname = "ardspot";
 boolean settingMode;
 boolean tokenReady = false;
 String ssidList;
@@ -54,12 +63,12 @@ String makePage(String title, String contents) {
   return s;
 }
 
-void ip2Str(IPAddress ip) {
+String ip2Str(IPAddress ip) {
     String s="";
     for (int i=0; i<4; i++) {
         s += i  ? "." + String(ip[i]) : String(ip[i]);
     }
-    localIP = s;
+    return s;
 }
 
 String urlDecode(String input) {
@@ -166,7 +175,7 @@ boolean checkConnection() {
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println();
       Serial.println(F("Connected!"));
-      ip2Str(WiFi.localIP());
+      localIP = ip2Str(WiFi.localIP());
       return true;
     }
     delay(500);
@@ -234,11 +243,19 @@ void startAP() {
     String s = F("<h1>Setup complete.</h1><p>device will be connected to \"");
     s += ssid;
     s += F("\" after the restart.");
-    webServer.send(200, F("text/html"), makePage(F("Wi-Fi Settings"), s));
 
-    WiFi.softAPdisconnect();
-    delay(100);
-    ESP.restart();
+    displayStatus(F("CONNECTING TO "), ssid);
+    WiFi.begin(ssid.c_str(), pass.c_str());
+    if (checkConnection()) {
+      webServer.send(200, F("text/html"), makePage(F("Wi-Fi Settings"), s));
+      delay(1000);
+      WiFi.softAPdisconnect();
+      delay(100);
+      ESP.restart();
+    } else {
+      home();
+    }
+
   });
 
   webServer.on("/", home);
@@ -247,7 +264,7 @@ void startAP() {
 
   webServer.begin();
 
-  displayStatus(F("WIFI CONFIG"), F("Connect to:"), apSSID);
+  displayStatus(F("WIFI CONFIG"), F("Connect to:"), apSSID, myHostname + F(".local/"));
   settingMode = true;
 }
 
@@ -265,7 +282,8 @@ void startWifi() {
     EEPROM.commit();
     String s = F("<h1>All settings have been reset.</h1>");
     webServer.send(200, F("text/html"), makePage(F("Factory Reset"), s));
-
+    displayStatus("FACTORY RESET", "Resetting...");
+    delay(1000);
     ESP.restart();
   });
 
@@ -312,7 +330,7 @@ void startWifi() {
       displayStatus(F("READY"), "", F("Starting..."));
       tokenReady = true;
     } else {
-      displayStatus(F("TOKEN ERROR"), F("Go to:"), localIP);
+      displayStatus(F("TOKEN ERROR"), F("Go to:"), myHostname + F(".local/  or"), localIP);
       tokenReady = false;
     }
   });
@@ -362,6 +380,13 @@ void setup() {
   display.flipScreenVertically();
   // display.setFont(Open_Sans_Hebrew_Condensed_Light_12);
   display.setFont(Roboto_Condensed_13);
+  if (!MDNS.begin(myHostname)) {
+    Serial.println("Error setting up MDNS responder!");
+  } else {
+    Serial.println("mDNS responder started");
+    // Add service to MDNS-SD
+    MDNS.addService("http", "tcp", 80);
+  }
 
   spotify.currentlyPlayingBufferSize = 5000;
   spotify.playerDetailsBufferSize = 5000;
@@ -381,19 +406,21 @@ void setup() {
           Serial.println(F("Tokens refreshed!"));
           tokenReady = true;
         } else {
-          displayStatus("TOKEN ERROR", "Go to:", localIP);
+          displayStatus("TOKEN ERROR", "Go to:", myHostname + F(".local/  or"), localIP);
           Serial.println(F("Failed to refresh tokens"));
           Serial.print(F("Connect to "));
-          Serial.println();
+          Serial.println(WiFi.localIP());
           tokenReady = false;
         }
       } else {
-        displayStatus(F("NO TOKEN SET"), F("Go to:"), localIP);
+        displayStatus(F("NO TOKEN SET"), F("Go to:"), myHostname + F(".local/  or"), localIP);
         tokenReady = false;
       }
       
     } else {
       displayStatus(F("FAILED TO CONNECT TO WIFI"));
+      WiFi.disconnect();
+      delay(1300);
       startAP();
     }
   } else {
@@ -402,6 +429,8 @@ void setup() {
 }
 
 void loop() {
+  MDNS.update();
+  webServer.handleClient();
   if (settingMode) {
     dnsServer.processNextRequest();
   } else if (tokenReady) {
@@ -412,5 +441,4 @@ void loop() {
       displayCurrentlyPlaying(spotify.getCurrentlyPlaying(SPOTIFY_MARKET));
     }
   }
-  webServer.handleClient();
 }
