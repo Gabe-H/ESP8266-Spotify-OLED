@@ -16,14 +16,14 @@
 // Spotify libraries
 
 /* 
-  SET THE BELOW VARIABLES TO YOUR OWN CLIENT CREDENTIALS
+  SET THE BELOW VARIABLES TO YOUR OWN SPOTIFY CLIENT CREDENTIALS
 */
-
-//#define CLIENT_ID
-//#define CLIENT_SECRET
+//#define CLIENT_ID ""
+//#define CLIENT_SECRET ""
 
 // Country code, including this is advisable
 #define SPOTIFY_MARKET "US"
+#define BUTTON 2
 //------- ---------------------- ------
 
 // Used to hide client variables on Github
@@ -31,18 +31,19 @@
   #include <creds.h>
 #endif
 
-unsigned long delayBetweenRequests = 1000; // Time between requests (1 second)
-unsigned long requestDueTime;              // Time when request due
+unsigned long delayBetweenRequests = 2000; // Time between requests
+unsigned long requestDueTime = 2000;       // Time when request due
 
 const IPAddress apIP(192, 168, 1, 1);
 const char apSSID[] = "Ard Connect";
+int oldButtonState = HIGH;
 boolean settingMode;
 boolean tokenReady = false;
 String ssidList;
 String localIP;
 
-int nothingPlayingCount = 0;
-int countForWifiShutdown = 0;
+uint16_t nothingPlayingCount = 0;
+boolean isPlaying = false;
 
 String refresh_token = "";
 
@@ -134,7 +135,7 @@ void writeWifi(String ssid = "", String password = "") {
   for (int i=0; i<32; i++) {
     EEPROM.write(i, ssid[i]);
   }
-  for (int i=0; i<96; i++) {
+  for (int i=0; i<64; i++) {
     EEPROM.write(i+32, password[i]);
   }
   EEPROM.commit();
@@ -180,7 +181,7 @@ boolean restoreConfig() {
 boolean checkConnection() {
   int count = 0;
   Serial.print(F("Waiting for Wi-Fi connection"));
-  while ( count < 30 ) {
+  while ( count < 20 ) {
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println();
       Serial.println(F("Connected!"));
@@ -192,6 +193,8 @@ boolean checkConnection() {
     count++;
   }
   Serial.println(F("Timed out."));
+  displayStatus(F("WIFI CONFIG"), F("Connection failed"), F("Reconnect and"), F("try again"));
+  writeWifi("", "");
   return false;
 }
 
@@ -273,7 +276,7 @@ void startAP() {
 
   webServer.begin();
 
-  displayStatus(F("WIFI CONFIG"), F("Connect to:"), apSSID, F("http://ardspot.local/"));
+  // displayStatus(F("WIFI CONFIG"), F("Connect to:"), apSSID, F("http://ardspot.local/"));
   settingMode = true;
 }
 
@@ -294,7 +297,7 @@ void startWifi() {
     EEPROM.commit();
     String s = F("<h1>All settings have been reset.</h1>");
     webServer.send(200, F("text/html"), makePage(F("Factory Reset"), s));
-    displayStatus(F("FACTORY RESET"), F("Resetting..."));
+    displayStatus(F("FACTORY RESET"), F("Restarting..."));
     delay(1000);
     ESP.restart();
   });
@@ -307,7 +310,8 @@ void startWifi() {
 
     String s = F("<h1>Wifi settings have been reset</h1>");
     webServer.send(200, F("text/html"), makePage(F("Wifi Settings Reset"), s));
-
+    displayStatus(F("WIFI RESET"), F("Restarting..."));
+    delay(1000);
     ESP.restart();
   });
 
@@ -382,6 +386,7 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
         display.drawString(0, 32, currentlyPlaying.albumName);
 
         float precentage = ((float) currentlyPlaying.progressMs / (float) currentlyPlaying.duraitonMs) * 100;
+        isPlaying = currentlyPlaying.isPlaying;
         display.drawProgressBar(1, 50, 126, 10, (int)precentage);
       }
         break;
@@ -406,6 +411,8 @@ void setup() {
   Serial.begin(115200);
   EEPROM.begin(512);
 
+  pinMode(BUTTON, INPUT_PULLUP);
+
   display.init();
   display.flipScreenVertically();
   // display.setFont(Open_Sans_Hebrew_Condensed_Light_12);
@@ -425,7 +432,7 @@ void setup() {
         Serial.println(F("Refreshing saved tokens.."));
 
         if (spotify.refreshAccessToken()) {
-          displayStatus(("READY"), "", F("Starting..."));
+          displayStatus(("READY"), F("Starting..."));
           Serial.println(F("Tokens refreshed!"));
           tokenReady = true;
         } else {
@@ -436,7 +443,7 @@ void setup() {
           tokenReady = false;
         }
       } else {
-        displayStatus(F("NO TOKEN SET"), F("Go to:"), F("http://ardspot.local/  or"), localIP+"/");
+        displayStatus(F("NO TOKEN SET"), F("On ")+WiFi.SSID()+F(", go to"), F("http://ardspot.local/  or"), F("http://")+localIP+F("/"));
         tokenReady = false;
       }
       
@@ -460,16 +467,27 @@ void setup() {
 }
 
 void loop() {
+  int buttonState = digitalRead(BUTTON);
   MDNS.update();
   webServer.handleClient();
   if (settingMode) {
     dnsServer.processNextRequest();
+    if (buttonState == LOW) {
+      displayStatus(F("SETUP INFO"), F("SSID: ")+String(apSSID), F("GW: ")+ip2Str(apIP), F("http://ardspot.local/"));
+    } else {
+      displayStatus(F("WIFI CONFIG"), F("Connect to:"), apSSID, F("http://ardspot.local/"));
+  }
   } else if (tokenReady) {
-    if (millis() > requestDueTime) {
-      Serial.print(F("Free heap: "));
-      Serial.println(ESP.getFreeHeap());
+    if (buttonState == LOW) {
+      displayStatus("NETWORK INFO", "http://ardspot.local/", F("http://")+localIP+F("/"));
+    } else {
+      if (millis() > requestDueTime) {
+        requestDueTime = millis() + delayBetweenRequests;
+        Serial.print(F("Free heap: "));
+        Serial.println(ESP.getFreeHeap());
 
-      displayCurrentlyPlaying(spotify.getCurrentlyPlaying(SPOTIFY_MARKET));
+        displayCurrentlyPlaying(spotify.getCurrentlyPlaying(SPOTIFY_MARKET));
+      }
     }
   }
 }

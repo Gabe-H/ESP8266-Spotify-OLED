@@ -481,7 +481,7 @@ CurrentlyPlaying ArduinoSpotify::getCurrentlyPlaying(const char *market)
             currentlyPlaying.trackName = (char *)doc["item"]["name"].as<char *>();
             currentlyPlaying.trackUri = (char *)doc["item"]["uri"].as<char *>();
 
-            // currentlyPlaying.isPlaying = doc["is_playing"].as<bool>();
+            currentlyPlaying.isPlaying = doc["is_playing"].as<bool>();
 
             currentlyPlaying.progressMs = doc["progress_ms"].as<long>();
             currentlyPlaying.duraitonMs = doc["item"]["duration_ms"].as<long>();
