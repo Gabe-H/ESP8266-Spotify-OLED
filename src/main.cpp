@@ -36,7 +36,7 @@ unsigned long requestDueTime = 2000;       // Time when request due
 
 const IPAddress apIP(192, 168, 1, 1);
 const char apSSID[] = "Ard Connect";
-int oldButtonState = HIGH;
+uint8_t oldButtonState = HIGH;
 boolean settingMode;
 boolean tokenReady = false;
 String ssidList;
@@ -400,11 +400,18 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
       
       default:
         display.drawString(0, 0, F("ERROR"));
-        display.drawString(0, 16, F("Please reboot"));
+        display.drawString(0, 16, F("Please reset"));
         break;
     }
-    display.display();
+  } else {
+    if (currentlyPlaying.statusCode == -1) {
+      display.setPixel(127, 0);
+      display.setPixel(126, 0);
+      display.setPixel(127, 1);
+      display.setPixel(126, 1);
+    }
   }
+    display.display();
 }
 
 void setup() {
@@ -424,7 +431,9 @@ void setup() {
   if (restoreConfig()) {
     if (checkConnection()) {
       startWifi();
-      client.setFingerprint(SPOTIFY_FINGERPRINT);
+      #ifndef USING_AXTLS
+        client.setFingerprint(SPOTIFY_FINGERPRINT);
+      #endif
       
       if (refresh_token != "") {
         spotify.setRefreshToken(refresh_token.c_str());
@@ -483,10 +492,15 @@ void loop() {
     } else {
       if (millis() > requestDueTime) {
         requestDueTime = millis() + delayBetweenRequests;
+        unsigned long requestMilli = millis();
         Serial.print(F("Free heap: "));
-        Serial.println(ESP.getFreeHeap());
-
+        Serial.print(ESP.getFreeHeap());
+        Serial.print(F(" : "));
         displayCurrentlyPlaying(spotify.getCurrentlyPlaying(SPOTIFY_MARKET));
+        Serial.print(ESP.getFreeHeap());
+        Serial.print(F("  "));
+        Serial.print(millis() - requestMilli);
+        Serial.println(F("ms"));
       }
     }
   }
