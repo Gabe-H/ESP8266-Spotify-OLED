@@ -18,7 +18,7 @@ http://ardspot.local/
 ```
 You can put the Client ID and Client Secret in the code in 2 ways:
 1. Add them to `main.cpp` in the `#define`'s and uncomment
-2. Make a file called `cred.h` templated as such:
+2. If you want to keep your credentials git-ignored, you may create file `src/cred.h` like this:
 ```cpp
 #define CLIENT_ID "your_client_id"
 #define CLIENT_SECRET "your_client_secret"
@@ -35,6 +35,10 @@ then again going to `http://ardspot.local/` and clicking sign in.
 
 ## The Device
 As of this version, the device only has the ESP8266 board, and the OLED. Future versions may have support for playback control buttons and more features. Only point to bring up here is that besides displaying the current playback of your Spotify account, the screen will show a small dot in the top right if it has lost connection. It is nothing to restart the device over, but just a reminder that the device will not have quick updates if the dot is visible.
+
+### Connections
+<img src="https://www.electronics-lab.com/wp-content/uploads/2020/01/OLED-Schematics.jpeg" alt="wiring diagram" />
+<br />
 
 ### Home page
 The Home page (http://ardspot.local/) has a some buttons:
