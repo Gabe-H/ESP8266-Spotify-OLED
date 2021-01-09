@@ -15,11 +15,16 @@
 #include <ArduinoJson.h>      // https://github.com/bblanchon/ArduinoJson
 // Spotify libraries
 
-/* 
-  SET THE BELOW VARIABLES TO YOUR OWN SPOTIFY CLIENT CREDENTIALS
-*/
-//#define CLIENT_ID ""
-//#define CLIENT_SECRET ""
+/*******************************
+ * Set the variables below to your own Spotify credentials,
+ * by making an application at https://developers.spotify.com/dashboard/
+ * 
+ * Make sure to set the redirect uri to "http://ardspot.local/callback/"
+******************************* */
+
+// #define CLIENT_ID ""
+
+// #define CLIENT_SECRET ""
 
 // Country code, including this is advisable
 #define SPOTIFY_MARKET "US"
@@ -286,7 +291,7 @@ void startWifi() {
     s += F("<form action=\"https://accounts.spotify.com/authorize\"><input type=\"hidden\" name=\"client_id\" value=\"");
     s += CLIENT_ID;
     s += ("\" /><input type=\"hidden\" name=\"response_type\" value=\"code\" /><input type=\"hidden\" name=\"redirect_uri\" value=\"http://ardspot.local/callback\" /><input type=\"hidden\" name=\"scope\" value=\"user-modify-playback-state\" /><input type=\"checkbox\" name=\"show_dialog\" value=\"true\" />Manual <input type=\"submit\" value=\"Sign In\" /></form>");
-    s += F("</p><p><a href=\"/wifireset\">Reset Wi-Fi Settings</a><br/><a href=\"/tokenreset\">Reset Spotify Token</a><br/><a href=\"/factoryreset\">Factory Reset<a></p>");
+    s += F("</p><p><a href=\"/wifireset\">Reset Wi-Fi Settings</a><br/><a href=\"/tokenreset\">Sign Out</a><br/><a href=\"/factoryreset\">Factory Reset<a></p>");
     webServer.send(200, F("text/html"), makePage(F("STA mode"), s));
   });
 
@@ -295,10 +300,10 @@ void startWifi() {
       EEPROM.write(i, 0);
     }
     EEPROM.commit();
-    String s = F("<h1>All settings have been reset.</h1>");
+    String s = F("<h1>All settings have been reset.</h1><br/><a href=\"/\">Home</a>");
     webServer.send(200, F("text/html"), makePage(F("Factory Reset"), s));
     displayStatus(F("FACTORY RESET"), F("Restarting..."));
-    delay(1000);
+    delay(1500);
     ESP.restart();
   });
 
@@ -308,10 +313,10 @@ void startWifi() {
     }
     EEPROM.commit();
 
-    String s = F("<h1>Wifi settings have been reset</h1>");
+    String s = F("<h1>Wifi settings have been reset</h1><br/><a href=\"/\">Home</a>");
     webServer.send(200, F("text/html"), makePage(F("Wifi Settings Reset"), s));
     displayStatus(F("WIFI RESET"), F("Restarting..."));
-    delay(1000);
+    delay(1500);
     ESP.restart();
   });
 
@@ -321,8 +326,9 @@ void startWifi() {
     }
     EEPROM.commit();
 
-    String s = F("<h1>Spotify token has been reset");
+    String s = F("<h1>Spotify token has been reset</h1><br/><a href=\"/\">Home</a>");
     webServer.send(200, F("text/html"), makePage(F("Token Reset"), s));
+    displayStatus(F("SPOTIFY SIGN OUT"), F("Restarting..."));
 
     ESP.restart();
   });
@@ -406,9 +412,6 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
   } else {
     if (currentlyPlaying.statusCode == -1) {
       display.setPixel(127, 0);
-      display.setPixel(126, 0);
-      display.setPixel(127, 1);
-      display.setPixel(126, 1);
     }
   }
     display.display();
@@ -437,22 +440,22 @@ void setup() {
       
       if (refresh_token != "") {
         spotify.setRefreshToken(refresh_token.c_str());
-        displayStatus(F("AUTHENTICATING"));
+        displayStatus(F("SIGNING IN"));
         Serial.println(F("Refreshing saved tokens.."));
 
         if (spotify.refreshAccessToken()) {
-          displayStatus(("READY"), F("Starting..."));
+          displayStatus(("STARTING"));
           Serial.println(F("Tokens refreshed!"));
           tokenReady = true;
         } else {
-          displayStatus(F("TOKEN ERROR"), F("Go to:"), F("http://ardspot.local/  or"), localIP+"/");
+          displayStatus(F("SPOTIFY ERROR"), F("Go to:"), F("http://ardspot.local/  or"), localIP+"/");
           Serial.println(F("Failed to refresh tokens"));
           Serial.print(F("Connect to "));
           Serial.println(WiFi.localIP());
           tokenReady = false;
         }
       } else {
-        displayStatus(F("NO TOKEN SET"), F("On ")+WiFi.SSID()+F(", go to"), F("http://ardspot.local/  or"), F("http://")+localIP+F("/"));
+        displayStatus(F("NOT SIGNED IN"), F("On ")+WiFi.SSID()+F(", go to"), F("http://ardspot.local/  or"), F("http://")+localIP+F("/"));
         tokenReady = false;
       }
       

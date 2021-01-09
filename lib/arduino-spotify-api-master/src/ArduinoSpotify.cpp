@@ -431,10 +431,10 @@ CurrentlyPlaying ArduinoSpotify::getCurrentlyPlaying(const char *market)
     }
 
     int statusCode = makeGetRequest(command, _bearerToken);
+    currentlyPlaying.statusCode = statusCode;
     if (statusCode > 0)
     {
         skipHeaders();
-        currentlyPlaying.statusCode = statusCode;
     }
 
     if (statusCode == 200)
