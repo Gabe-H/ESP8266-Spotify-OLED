@@ -328,7 +328,7 @@ void startWifi() {
 
     String s = F("<h1>Spotify token has been reset</h1><br/><a href=\"/\">Home</a>");
     webServer.send(200, F("text/html"), makePage(F("Token Reset"), s));
-    displayStatus(F("SPOTIFY SIGN OUT"), F("Restarting..."));
+    displayStatus(F("SIGNED OUT"), F("Restarting..."));
 
     ESP.restart();
   });
@@ -345,7 +345,7 @@ void startWifi() {
     }
     EEPROM.commit();
     displayStatus(F("SAVING..."));
-    delay(2500);
+    delay(1000);
     
     refresh_token = refreshToken;
     displayStatus(F("RESTARTING..."));
@@ -357,7 +357,7 @@ void startWifi() {
     String authCode = webServer.arg(F("code"));
     Serial.print(F("Got code: "));
     Serial.println(authCode);
-    displayStatus(F("GOT CODE"));
+    displayStatus(F("VERIFYING..."));
     String refreshToken = spotify.requestAccessTokens(authCode.c_str(), "http://ardspot.local/callback");
     
     for (int i = 0; i < 131; ++i) {
@@ -367,7 +367,7 @@ void startWifi() {
 
     webServer.send(200, F("text/html"), makePage(F("Spotify Authentication"), F("<h1>You may close this window</h1>")));
     displayStatus(F("SAVING..."));
-    delay(2500);
+    delay(1000);
     
     refresh_token = refreshToken;
     displayStatus(F("RESTARTING..."));
@@ -440,11 +440,11 @@ void setup() {
       
       if (refresh_token != "") {
         spotify.setRefreshToken(refresh_token.c_str());
-        displayStatus(F("SIGNING IN"));
+        displayStatus(F("SIGNING IN..."));
         Serial.println(F("Refreshing saved tokens.."));
 
         if (spotify.refreshAccessToken()) {
-          displayStatus(("STARTING"));
+          displayStatus(("STARTING..."));
           Serial.println(F("Tokens refreshed!"));
           tokenReady = true;
         } else {
