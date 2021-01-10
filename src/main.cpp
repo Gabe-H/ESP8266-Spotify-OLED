@@ -48,6 +48,7 @@ String ssidList;
 String localIP;
 
 uint16_t nothingPlayingCount = 0;
+uint16_t failedCount = 0;
 boolean isPlaying = false;
 
 String refresh_token = "";
@@ -387,6 +388,7 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
     switch (currentlyPlaying.statusCode) {
       case 200: {
         nothingPlayingCount = 0;
+        failedCount = 0;
         display.drawString(0, 0, currentlyPlaying.trackName);
         display.drawString(0, 16, currentlyPlaying.firstArtistName);
         display.drawString(0, 32, currentlyPlaying.albumName);
@@ -412,6 +414,11 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
   } else {
     if (currentlyPlaying.statusCode == -1) {
       display.setPixel(127, 0);
+      if (failedCount > 20) {
+        ESP.restart();
+      } else {
+        failedCount++;
+      }
     }
   }
     display.display();
@@ -431,13 +438,16 @@ void setup() {
   spotify.currentlyPlayingBufferSize = 5000;
   spotify.playerDetailsBufferSize = 5000;
   
+  // Restore wifi & spotify credentials
   if (restoreConfig()) {
+    // Try wifi connection
     if (checkConnection()) {
+      // Start normal wifi connection as device
       startWifi();
       #ifndef USING_AXTLS
         client.setFingerprint(SPOTIFY_FINGERPRINT);
       #endif
-      
+      // Try to revive saved spotify token else prompt user to sign in
       if (refresh_token != "") {
         spotify.setRefreshToken(refresh_token.c_str());
         displayStatus(F("SIGNING IN..."));
@@ -463,12 +473,15 @@ void setup() {
       displayStatus(F("FAILED TO CONNECT TO WIFI"));
       WiFi.disconnect();
       delay(1300);
+      // If wifi exists but failed, start softAP
       startAP();
     }
   } else {
+    // If wifi credentials not saved, start softAP
     startAP();
   }
   
+  // configure http://ardspot.local/
   if (!MDNS.begin(F("ardspot"))) {
     Serial.println(F("Error setting up MDNS responder!"));
   } else {
@@ -479,19 +492,21 @@ void setup() {
 }
 
 void loop() {
-  int buttonState = digitalRead(BUTTON);
+  int buttonState = digitalRead(BUTTON); // Very unstable right now
   MDNS.update();
   webServer.handleClient();
+  // If is in softAP mode
   if (settingMode) {
     dnsServer.processNextRequest();
     if (buttonState == LOW) {
       displayStatus(F("SETUP INFO"), F("SSID: ")+String(apSSID), F("GW: ")+ip2Str(apIP), F("http://ardspot.local/"));
     } else {
       displayStatus(F("WIFI CONFIG"), F("Connect to:"), apSSID, F("http://ardspot.local/"));
-  }
+    }
+  // Else if the Spotify token is valid then start
   } else if (tokenReady) {
     if (buttonState == LOW) {
-      displayStatus("NETWORK INFO", "http://ardspot.local/", F("http://")+localIP+F("/"));
+      displayStatus(F("NETWORK INFO"), F("http://ardspot.local/"), F("http://")+localIP+F("/"));
     } else {
       if (millis() > requestDueTime) {
         requestDueTime = millis() + delayBetweenRequests;
