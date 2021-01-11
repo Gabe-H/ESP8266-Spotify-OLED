@@ -199,7 +199,6 @@ boolean checkConnection() {
     count++;
   }
   Serial.println(F("Timed out."));
-  displayStatus(F("WIFI CONFIG"), F("Connection failed"), F("Reconnect and"), F("try again"));
   writeWifi("", "");
   return false;
 }
@@ -293,7 +292,7 @@ void startWifi() {
     s += CLIENT_ID;
     s += ("\" /><input type=\"hidden\" name=\"response_type\" value=\"code\" /><input type=\"hidden\" name=\"redirect_uri\" value=\"http://ardspot.local/callback\" /><input type=\"hidden\" name=\"scope\" value=\"user-modify-playback-state\" /><input type=\"checkbox\" name=\"show_dialog\" value=\"true\" />Manual <input type=\"submit\" value=\"Sign In\" /></form>");
     s += F("</p><p><a href=\"/wifireset\">Reset Wi-Fi Settings</a><br/><a href=\"/tokenreset\">Sign Out</a><br/><a href=\"/factoryreset\">Factory Reset<a></p>");
-    webServer.send(200, F("text/html"), makePage(F("STA mode"), s));
+    webServer.send(200, F("text/html"), makePage(F("Ard Home"), s));
   });
 
   webServer.on(F("/factoryreset"), []() {
@@ -301,8 +300,8 @@ void startWifi() {
       EEPROM.write(i, 0);
     }
     EEPROM.commit();
-    String s = F("<h1>All settings have been reset.</h1><br/><a href=\"/\">Home</a>");
-    webServer.send(200, F("text/html"), makePage(F("Factory Reset"), s));
+    
+    webServer.send(200, F("text/html"), makePage(F("Factory Reset"), F("<h1>All settings have been reset</h1><br><h2>Please close this window</h2>")));
     displayStatus(F("FACTORY RESET"), F("Restarting..."));
     delay(1500);
     ESP.restart();
@@ -314,8 +313,7 @@ void startWifi() {
     }
     EEPROM.commit();
 
-    String s = F("<h1>Wifi settings have been reset</h1><br/><a href=\"/\">Home</a>");
-    webServer.send(200, F("text/html"), makePage(F("Wifi Settings Reset"), s));
+    webServer.send(200, F("text/html"), makePage(F("Wi-Fi Reset"), F("<h1>Wifi settings have been reset</h1><br><h2>Please close this window</h2>")));
     displayStatus(F("WIFI RESET"), F("Restarting..."));
     delay(1500);
     ESP.restart();
@@ -327,30 +325,9 @@ void startWifi() {
     }
     EEPROM.commit();
 
-    String s = F("<h1>Spotify token has been reset</h1><br/><a href=\"/\">Home</a>");
-    webServer.send(200, F("text/html"), makePage(F("Token Reset"), s));
+    webServer.send(200, F("text/html"), makePage(F("Signed Out"), F("<h1>You have been signed out</h1><br><h2>Please close this window</h2>")));
     displayStatus(F("SIGNED OUT"), F("Restarting..."));
 
-    ESP.restart();
-  });
-
-  webServer.on(F("/tokenset"), []() {
-    String refreshToken = webServer.arg("refresh_token");
-    Serial.print(F("Got token: "));
-    Serial.println(refreshToken);
-    tokenReady = false;
-
-    webServer.send(200, F("text/html"), makePage(F("Set Refresh Token"), F("<h1>Refresh token was set</h1>")));
-    for (int i = 0; i < 131; ++i) {
-      EEPROM.write(i + 96, refreshToken[i]);
-    }
-    EEPROM.commit();
-    displayStatus(F("SAVING..."));
-    delay(1000);
-    
-    refresh_token = refreshToken;
-    displayStatus(F("RESTARTING..."));
-    delay(200);
     ESP.restart();
   });
 
@@ -366,12 +343,9 @@ void startWifi() {
     }
     EEPROM.commit();
 
-    webServer.send(200, F("text/html"), makePage(F("Spotify Authentication"), F("<h1>You may close this window</h1>")));
-    displayStatus(F("SAVING..."));
-    delay(1000);
+    webServer.send(200, F("text/html"), makePage(F("Spotify Authentication"), F("<h1>Please close this window</h1>")));
     
-    refresh_token = refreshToken;
-    displayStatus(F("RESTARTING..."));
+    displayStatus(F("SAVED!"), F("Restarting..."));
     delay(200);
     ESP.restart();
   });
@@ -470,7 +444,7 @@ void setup() {
       }
       
     } else {
-      displayStatus(F("FAILED TO CONNECT TO WIFI"));
+      displayStatus(F("FAILED TO CONNECT"));
       WiFi.disconnect();
       delay(1300);
       // If wifi exists but failed, start softAP
