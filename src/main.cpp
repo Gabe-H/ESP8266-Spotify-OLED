@@ -51,13 +51,14 @@ unsigned long requestDueTime = 2000;       // Time when request due
 
 const IPAddress apIP(192, 168, 1, 1);
 const char apSSID[] = "Ard Connect";
-int oldButtonState = HIGH;
+uint8_t oldButtonState = HIGH;
 boolean settingMode;
 boolean tokenReady = false;
 String ssidList;
 String localIP;
 
 uint16_t nothingPlayingCount = 0;
+uint16_t failedCount = 0;
 boolean isPlaying = false;
 
 String refresh_token = "";
@@ -229,7 +230,6 @@ boolean checkConnection()
     count++;
   }
   Serial.println(F("Timed out."));
-  displayStatus(F("WIFI CONFIG"), F("Connection failed"), F("Reconnect and"), F("try again"));
   writeWifi("", "");
   return false;
 }
@@ -329,8 +329,8 @@ void startWifi()
     s += F("<form action=\"https://accounts.spotify.com/authorize\"><input type=\"hidden\" name=\"client_id\" value=\"");
     s += CLIENT_ID;
     s += ("\" /><input type=\"hidden\" name=\"response_type\" value=\"code\" /><input type=\"hidden\" name=\"redirect_uri\" value=\"http://ardspot.local/callback\" /><input type=\"hidden\" name=\"scope\" value=\"user-modify-playback-state\" /><input type=\"checkbox\" name=\"show_dialog\" value=\"true\" />Manual <input type=\"submit\" value=\"Sign In\" /></form>");
-    s += F("</p><p><a href=\"/wifireset\">Reset Wi-Fi Settings</a><br/><a href=\"/tokenreset\">Reset Spotify Token</a><br/><a href=\"/factoryreset\">Factory Reset<a></p>");
-    webServer.send(200, F("text/html"), makePage(F("STA mode"), s));
+    s += F("</p><p><a href=\"/wifireset\">Reset Wi-Fi Settings</a><br/><a href=\"/tokenreset\">Sign Out</a><br/><a href=\"/factoryreset\">Factory Reset<a></p>");
+    webServer.send(200, F("text/html"), makePage(F("Ard Home"), s));
   });
 
   webServer.on(F("/factoryreset"), []() {
@@ -339,10 +339,10 @@ void startWifi()
       EEPROM.write(i, 0);
     }
     EEPROM.commit();
-    String s = F("<h1>All settings have been reset.</h1>");
-    webServer.send(200, F("text/html"), makePage(F("Factory Reset"), s));
+
+    webServer.send(200, F("text/html"), makePage(F("Factory Reset"), F("<h1>All settings have been reset</h1><br><h2>Please close this window</h2>")));
     displayStatus(F("FACTORY RESET"), F("Restarting..."));
-    delay(1000);
+    delay(1500);
     ESP.restart();
   });
 
@@ -353,10 +353,9 @@ void startWifi()
     }
     EEPROM.commit();
 
-    String s = F("<h1>Wifi settings have been reset</h1>");
-    webServer.send(200, F("text/html"), makePage(F("Wifi Settings Reset"), s));
+    webServer.send(200, F("text/html"), makePage(F("Wi-Fi Reset"), F("<h1>Wifi settings have been reset</h1><br><h2>Please close this window</h2>")));
     displayStatus(F("WIFI RESET"), F("Restarting..."));
-    delay(1000);
+    delay(1500);
     ESP.restart();
   });
 
@@ -367,8 +366,8 @@ void startWifi()
     }
     EEPROM.commit();
 
-    String s = F("<h1>Spotify token has been reset");
-    webServer.send(200, F("text/html"), makePage(F("Token Reset"), s));
+    webServer.send(200, F("text/html"), makePage(F("Signed Out"), F("<h1>You have been signed out</h1><br><h2>Please close this window</h2>")));
+    displayStatus(F("SIGNED OUT"), F("Restarting..."));
 
     ESP.restart();
   });
@@ -398,7 +397,7 @@ void startWifi()
     String authCode = webServer.arg(F("code"));
     Serial.print(F("Got code: "));
     Serial.println(authCode);
-    displayStatus(F("GOT CODE"));
+    displayStatus(F("VERIFYING..."));
     String refreshToken = spotify.requestAccessTokens(authCode.c_str(), "http://ardspot.local/callback");
 
     for (int i = 0; i < 131; ++i)
@@ -407,12 +406,9 @@ void startWifi()
     }
     EEPROM.commit();
 
-    webServer.send(200, F("text/html"), makePage(F("Spotify Authentication"), F("<h1>You may close this window</h1>")));
-    displayStatus(F("SAVING..."));
-    delay(2500);
+    webServer.send(200, F("text/html"), makePage(F("Spotify Authentication"), F("<h1>Please close this window</h1>")));
 
-    refresh_token = refreshToken;
-    displayStatus(F("RESTARTING..."));
+    displayStatus(F("SAVED!"), F("Restarting..."));
     delay(200);
     ESP.restart();
   });
@@ -451,11 +447,26 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
 
     default:
       display.drawString(0, 0, F("ERROR"));
-      display.drawString(0, 16, F("Please reboot"));
+      display.drawString(0, 16, F("Please reset"));
       break;
     }
-    display.display();
   }
+  else
+  {
+    if (currentlyPlaying.statusCode == -1)
+    {
+      display.setPixel(127, 0);
+      if (failedCount > 20)
+      {
+        ESP.restart();
+      }
+      else
+      {
+        failedCount++;
+      }
+    }
+  }
+  display.display();
 }
 
 void setup()
@@ -473,28 +484,33 @@ void setup()
   spotify.currentlyPlayingBufferSize = 5000;
   spotify.playerDetailsBufferSize = 5000;
 
+  // Restore wifi & spotify credentials
   if (restoreConfig())
   {
+    // Try wifi connection
     if (checkConnection())
     {
+      // Start normal wifi connection as device
       startWifi();
+#ifndef USING_AXTLS
       client.setFingerprint(SPOTIFY_FINGERPRINT);
-
+#endif
+      // Try to revive saved spotify token else prompt user to sign in
       if (refresh_token != "")
       {
         spotify.setRefreshToken(refresh_token.c_str());
-        displayStatus(F("AUTHENTICATING"));
+        displayStatus(F("SIGNING IN..."));
         Serial.println(F("Refreshing saved tokens.."));
 
         if (spotify.refreshAccessToken())
         {
-          displayStatus(("READY"), F("Starting..."));
+          displayStatus(("STARTING..."));
           Serial.println(F("Tokens refreshed!"));
           tokenReady = true;
         }
         else
         {
-          displayStatus(F("TOKEN ERROR"), F("Go to:"), F("http://ardspot.local/  or"), localIP + "/");
+          displayStatus(F("SPOTIFY ERROR"), F("Go to:"), F("http://ardspot.local/  or"), localIP + "/");
           Serial.println(F("Failed to refresh tokens"));
           Serial.print(F("Connect to "));
           Serial.println(WiFi.localIP());
@@ -503,23 +519,26 @@ void setup()
       }
       else
       {
-        displayStatus(F("NO TOKEN SET"), "On" + WiFi.SSID() + F(", go to"), F("http://ardspot.local/  or"), "http://" + localIP + F("/"));
+        displayStatus(F("NOT SIGNED IN"), String("On ") + WiFi.SSID() + F(", go to"), F("http://ardspot.local/  or"), String("http://") + localIP + F("/"));
         tokenReady = false;
       }
     }
     else
     {
-      displayStatus(F("FAILED TO CONNECT TO WIFI"));
+      displayStatus(F("FAILED TO CONNECT"));
       WiFi.disconnect();
       delay(1300);
+      // If wifi exists but failed, start softAP
       startAP();
     }
   }
   else
   {
+    // If wifi credentials not saved, start softAP
     startAP();
   }
 
+  // configure http://ardspot.local/
   if (!MDNS.begin(F("ardspot")))
   {
     Serial.println(F("Error setting up MDNS responder!"));
@@ -534,10 +553,10 @@ void setup()
 
 void loop()
 {
-
-  int buttonState = digitalRead(BUTTON);
+  int buttonState = digitalRead(BUTTON); // Very unstable right now
   MDNS.update();
   webServer.handleClient();
+  // If is in softAP mode
   if (settingMode)
   {
     dnsServer.processNextRequest();
@@ -549,22 +568,28 @@ void loop()
     {
       displayStatus(F("WIFI CONFIG"), F("Connect to:"), apSSID, F("http://ardspot.local/"));
     }
+    // Else if the Spotify token is valid then start
   }
   else if (tokenReady)
   {
     if (buttonState == LOW)
     {
-      displayStatus("NETWORK INFO", "http://ardspot.local/", "http://" + localIP + F("/"));
+      displayStatus(F("NETWORK INFO"), F("http://ardspot.local/"), String("http://") + localIP + F("/"));
     }
     else
     {
       if (millis() > requestDueTime)
       {
         requestDueTime = millis() + delayBetweenRequests;
+        unsigned long requestMilli = millis();
         Serial.print(F("Free heap: "));
-        Serial.println(ESP.getFreeHeap());
-
+        Serial.print(ESP.getFreeHeap());
+        Serial.print(F(" : "));
         displayCurrentlyPlaying(spotify.getCurrentlyPlaying(SPOTIFY_MARKET));
+        Serial.print(ESP.getFreeHeap());
+        Serial.print(F("  "));
+        Serial.print(millis() - requestMilli);
+        Serial.println(F("ms"));
       }
     }
   }
