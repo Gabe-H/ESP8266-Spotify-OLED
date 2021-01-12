@@ -8,6 +8,12 @@ For use with an SSD1306 128x64, designed in mind for blue-yellow displays.
 - (OPTIONAL) <a href="https://www.thingiverse.com/thing:3080488">3D printed case</a>
 
 ## Uploading
+### Precompiled
+Download the latest <a href="https://github.com/gabe-h/esp8266-spotify-oled/releases/latest">Release</a> 
+binary for D1 Mini, and use <a href="https://github.com/espressif/esptool">esptool.py</a> to upload.
+<br>
+Then go to __Device Setup__
+### Compile yourself
 You will need to supply your own Spotify client credentials, created from
 <a href="https://developers.spotify.com/dashboard">the Spotify Application Dashboard </a>.
 <br />
@@ -36,10 +42,6 @@ then again going to `http://ardspot.local/` and clicking sign in.
 ## The Device
 As of this version, the device only has the ESP8266 board, and the OLED. Future versions may have support for playback control buttons and more features. Only point to bring up here is that besides displaying the current playback of your Spotify account, the screen will show a small dot in the top right if it has lost connection. It is nothing to restart the device over, but just a reminder that the device will not have quick updates if the dot is visible.
 
-### Connections
-<img src="https://www.electronics-lab.com/wp-content/uploads/2020/01/OLED-Schematics.jpeg" alt="wiring diagram" />
-<br />
-
 ### Home page
 The Home page (http://ardspot.local/) has a some buttons:
 - A Spotify sign in button with a checkbox next to it. In most cases you can simply press the button and sign in, but if you press the check mark it allows "show dialog" with the api authorization, so you can switch accounts if needed, and see the requested scopes
@@ -49,3 +51,7 @@ The Home page (http://ardspot.local/) has a some buttons:
 
 ### AP Mode
 Will start a WiFi network called "Ard Connect". Connect to that network and use screen to set up.
+
+### Connections
+<img src="https://www.electronics-lab.com/wp-content/uploads/2020/01/OLED-Schematics.jpeg" alt="wiring diagram" />
+<br />
