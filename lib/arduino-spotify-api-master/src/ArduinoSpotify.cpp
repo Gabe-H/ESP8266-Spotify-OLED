@@ -446,45 +446,45 @@ CurrentlyPlaying ArduinoSpotify::getCurrentlyPlaying(const char *market)
         DeserializationError error = deserializeJson(doc, *client);
         if (!error)
         {
-            // JsonObject item = doc["item"];
-            // JsonObject firstArtist = item["album"]["artists"][0];
+            JsonObject item = doc["item"];
+            JsonObject firstArtist = item["album"]["artists"][0];
 
-            currentlyPlaying.firstArtistName = (char *)doc["item"]["album"]["artists"][0]["name"].as<char *>();
-            // currentlyPlaying.firstArtistUri = (char *)firstArtist["uri"].as<char *>();
+            currentlyPlaying.firstArtistName = (char *)firstArtist["name"].as<char *>();
+            currentlyPlaying.firstArtistUri = (char *)firstArtist["uri"].as<char *>();
 
-            currentlyPlaying.albumName = (char *)doc["item"]["album"]["name"].as<char *>();
-            // currentlyPlaying.albumUri = (char *)item["album"]["uri"].as<char *>();
+            currentlyPlaying.albumName = (char *)item["album"]["name"].as<char *>();
+            currentlyPlaying.albumUri = (char *)item["album"]["uri"].as<char *>();
 
-            // JsonArray images = item["album"]["images"];
+            JsonArray images = item["album"]["images"];
 
-            // // Images are returned in order of width, so last should be smallest.
-            // int numImages = images.size();
-            // int startingIndex = 0;
-            // if (numImages > SPOTIFY_NUM_ALBUM_IMAGES)
-            // {
-            //     startingIndex = numImages - SPOTIFY_NUM_ALBUM_IMAGES;
-            //     currentlyPlaying.numImages = SPOTIFY_NUM_ALBUM_IMAGES;
-            // }
-            // else
-            // {
-            //     currentlyPlaying.numImages = numImages;
-            // }
+            // Images are returned in order of width, so last should be smallest.
+            int numImages = images.size();
+            int startingIndex = 0;
+            if (numImages > SPOTIFY_NUM_ALBUM_IMAGES)
+            {
+                startingIndex = numImages - SPOTIFY_NUM_ALBUM_IMAGES;
+                currentlyPlaying.numImages = SPOTIFY_NUM_ALBUM_IMAGES;
+            }
+            else
+            {
+                currentlyPlaying.numImages = numImages;
+            }
 
-            // for (int i = 0; i < numImages; i++)
-            // {
-            //     int adjustedIndex = startingIndex + i;
-            //     currentlyPlaying.albumImages[i].height = images[adjustedIndex]["height"].as<int>();
-            //     currentlyPlaying.albumImages[i].width = images[adjustedIndex]["width"].as<int>();
-            //     currentlyPlaying.albumImages[i].url = (char *)images[adjustedIndex]["url"].as<char *>();
-            // }
+            for (int i = 0; i < numImages; i++)
+            {
+                int adjustedIndex = startingIndex + i;
+                currentlyPlaying.albumImages[i].height = images[adjustedIndex]["height"].as<int>();
+                currentlyPlaying.albumImages[i].width = images[adjustedIndex]["width"].as<int>();
+                currentlyPlaying.albumImages[i].url = (char *)images[adjustedIndex]["url"].as<char *>();
+            }
 
-            currentlyPlaying.trackName = (char *)doc["item"]["name"].as<char *>();
-            currentlyPlaying.trackUri = (char *)doc["item"]["uri"].as<char *>();
+            currentlyPlaying.trackName = (char *)item["name"].as<char *>();
+            currentlyPlaying.trackUri = (char *)item["uri"].as<char *>();
 
             currentlyPlaying.isPlaying = doc["is_playing"].as<bool>();
 
             currentlyPlaying.progressMs = doc["progress_ms"].as<long>();
-            currentlyPlaying.duraitonMs = doc["item"]["duration_ms"].as<long>();
+            currentlyPlaying.duraitonMs = item["duration_ms"].as<long>();
 
             currentlyPlaying.error = false;
         }

@@ -1,5 +1,7 @@
 # ESP8266 Spotify OLED
 For use with an SSD1306 128x64, designed in mind for blue-yellow displays.
+<br>
+<img src="images/image_3.jpg" alt="Demo pic" style="width: 50%"></img>
 
 ## Requirements
 - VS Code with PlatformIO installed

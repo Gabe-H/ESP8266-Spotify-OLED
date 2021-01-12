@@ -36,7 +36,7 @@
   #include <creds.h>
 #endif
 
-unsigned long delayBetweenRequests = 2000; // Time between requests
+unsigned long delayBetweenRequests = 5000; // Time between requests
 unsigned long requestDueTime = 2000;       // Time when request due
 
 const IPAddress apIP(192, 168, 1, 1);

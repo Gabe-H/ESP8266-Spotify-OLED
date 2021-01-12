@@ -97,9 +97,13 @@ struct PlayerDetails
 struct CurrentlyPlaying
 {
   char *firstArtistName;
+  char *firstArtistUri;
   char *albumName;
+  char *albumUri;
   char *trackName;
   char *trackUri;
+  SpotifyImage albumImages[3];
+  int numImages;
   bool isPlaying;
   long progressMs;
   long duraitonMs;
