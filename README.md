@@ -56,4 +56,4 @@ Will start a WiFi network called "Ard Connect". Connect to that network and use 
 
 ### Connections
 <img src="https://www.electronics-lab.com/wp-content/uploads/2020/01/OLED-Schematics.jpeg" alt="wiring diagram" />
-<br />
+Credit: <a href="https://bitsnblobs.com/">Bits and Bobs</a>
