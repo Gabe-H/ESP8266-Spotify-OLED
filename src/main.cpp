@@ -359,9 +359,9 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
   if (!currentlyPlaying.error) {
     display.clear();
     display.setTextAlignment(TEXT_ALIGN_LEFT);
+    nothingPlayingCount = 0;
     switch (currentlyPlaying.statusCode) {
       case 200: {
-        nothingPlayingCount = 0;
         failedCount = 0;
         display.drawString(0, 0, currentlyPlaying.trackName);
         display.drawString(0, 16, currentlyPlaying.firstArtistName);
@@ -374,7 +374,7 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
         break;
 
       case 204:
-        if (nothingPlayingCount < 20) {
+        if (nothingPlayingCount < 5) {
           nothingPlayingCount++;
           display.drawString(0, 0, F("Nothing playing"));
         }
