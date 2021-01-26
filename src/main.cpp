@@ -199,7 +199,6 @@ boolean checkConnection() {
     count++;
   }
   Serial.println(F("Timed out."));
-  writeWifi("", "");
   return false;
 }
 
@@ -359,10 +358,11 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
   if (!currentlyPlaying.error) {
     display.clear();
     display.setTextAlignment(TEXT_ALIGN_LEFT);
-    nothingPlayingCount = 0;
+    failedCount = 0;
     switch (currentlyPlaying.statusCode) {
       case 200: {
         failedCount = 0;
+        nothingPlayingCount = 0;
         display.drawString(0, 0, currentlyPlaying.trackName);
         display.drawString(0, 16, currentlyPlaying.firstArtistName);
         display.drawString(0, 32, currentlyPlaying.albumName);
@@ -374,8 +374,9 @@ void displayCurrentlyPlaying(CurrentlyPlaying currentlyPlaying)
         break;
 
       case 204:
-        if (nothingPlayingCount < 5) {
+        if (nothingPlayingCount < 3) {
           nothingPlayingCount++;
+          Serial.println(nothingPlayingCount);
           display.drawString(0, 0, F("Nothing playing"));
         }
         break;
@@ -433,6 +434,7 @@ void setup() {
           tokenReady = true;
         } else {
           displayStatus(F("SPOTIFY ERROR"), F("Go to:"), F("http://ardspot.local/  or"), localIP+"/");
+          Serial.println();
           Serial.println(F("Failed to refresh tokens"));
           Serial.print(F("Connect to "));
           Serial.println(WiFi.localIP());
